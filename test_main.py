@@ -36,7 +36,8 @@ def test_create_task(client):
         "id": 1,
         "title": "Learn FastAPI",
         "status": "To Do",
-        "priority": "Medium"
+        "priority": "Medium",
+        "due_date": None
     }
 
 

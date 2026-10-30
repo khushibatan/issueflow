@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IssueFlow | Task Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="brand">
+            <span class="brand-icon">IF</span>
+            <h1>IssueFlow</h1>
+        </div>
+        <p>Plan your work. Track your progress.</p>
+    </header>
+
+    <main class="container">
+        <section class="welcome">
+            <div>
+                <p class="eyebrow">YOUR WORKSPACE</p>
+                <h2>My Tasks</h2>
+                <p class="subtitle">A little progress every day adds up.</p>
+            </div>
+            <span class="date-label" id="today-date"></span>
+        </section>
+
+        <section class="stats">
+            <article class="stat-card">
+                <p>Total Tasks</p>
+                <h3 id="total-count">0</h3>
+            </article>
+
+            <article class="stat-card">
+                <p>To Do</p>
+                <h3 id="todo-count">0</h3>
+            </article>
+
+            <article class="stat-card">
+                <p>In Progress</p>
+                <h3 id="progress-count">0</h3>
+            </article>
+
+            <article class="stat-card">
+                <p>Completed</p>
+                <h3 id="done-count">0</h3>
+            </article>
+        </section>
+
+        <section class="task-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Add a task</h2>
+                    <p class="subtitle">Keep your next step clear and manageable.</p>
+                </div>
+            </div>
+
+            <form id="task-form">
+                <div class="form-group">
+                    <label for="task-title">Task title</label>
+                    <input
+                        type="text"
+                        id="task-title"
+                        placeholder="e.g. Finish Java assignment"
+                        maxlength="200"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="task-priority">Priority</label>
+                    <select id="task-priority">
+                        <option value="Low">Low</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="task-due-date">Due Date</label>
+                    <input
+                        type="date"
+                        id="task-due-date"
+                    >
+
+                <button type="submit" id="add-task-button">+ Add Task</button>
+            </form>
+
+            <p id="form-message" role="status"></p>
+        </section>
+
+        <section class="task-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Your task list</h2>
+                    <p class="subtitle">Update a task as you make progress.</p>
+                </div>
+                <input
+    type="search"
+    id="search-input"
+    placeholder="Search tasks by title..."
+    aria-label="Search tasks by title"
+/>
+                <select id="status-filter" aria-label="Filter tasks by status">
+                    <option value="All">All tasks</option>
+                    <option value="To Do">To Do</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Done">Done</option>
+                </select>
+            </div>
+
+            <div id="task-list" class="task-list">
+                <p class="empty-state">Your tasks will appear here.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>IssueFlow · Small steps, steady progress.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

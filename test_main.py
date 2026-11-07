@@ -196,3 +196,123 @@ def test_empty_update_rejected(client):
     )
 
     assert response.status_code == 422
+
+
+def test_create_workspace(client):
+    response = client.post(
+        "/workspaces",
+        json={"name": "ABC Organisation"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == 1
+    assert response.json()["name"] == "ABC Organisation"
+
+
+def test_create_workspace_strips_spaces(client):
+    response = client.post(
+        "/workspaces",
+        json={"name": "  Design Agency  "}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Design Agency"
+
+
+def test_create_workspace_rejects_blank_name(client):
+    response = client.post(
+        "/workspaces",
+        json={"name": "   "}
+    )
+
+    assert response.status_code == 422
+
+def test_create_issue(client):
+    workspace = client.post(
+        "/workspaces",
+        json={"name": "Test Organisation"}
+    )
+
+    workspace_id = workspace.json()["id"]
+
+    response = client.post(
+        "/issues",
+        json={
+            "workspace_id": workspace_id,
+            "title": "Projector not functioning",
+            "description": "The projector repeatedly shuts down.",
+            "category": "Equipment",
+            "priority": "High"
+        }
+    )
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "Projector not functioning"
+    assert response.json()["priority"] == "High"
+    assert response.json()["status"] == "Open"
+
+
+def test_create_issue_with_default_priority(client):
+    workspace = client.post(
+        "/workspaces",
+        json={"name": "Test Organisation"}
+    )
+
+    response = client.post(
+        "/issues",
+        json={
+            "workspace_id": workspace.json()["id"],
+            "title": "Internet connection problem"
+        }
+    )
+
+    assert response.status_code == 200
+    assert response.json()["priority"] == "Medium"
+    assert response.json()["status"] == "Open"
+
+
+def test_create_issue_with_invalid_workspace(client):
+    response = client.post(
+        "/issues",
+        json={
+            "workspace_id": 999,
+            "title": "Test issue"
+        }
+    )
+
+    assert response.status_code == 404
+
+
+def test_create_issue_rejects_blank_title(client):
+    workspace = client.post(
+        "/workspaces",
+        json={"name": "Test Organisation"}
+    )
+
+    response = client.post(
+        "/issues",
+        json={
+            "workspace_id": workspace.json()["id"],
+            "title": "   "
+        }
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_issue_rejects_invalid_priority(client):
+    workspace = client.post(
+        "/workspaces",
+        json={"name": "Test Organisation"}
+    )
+
+    response = client.post(
+        "/issues",
+        json={
+            "workspace_id": workspace.json()["id"],
+            "title": "Test issue",
+            "priority": "Urgent"
+        }
+    )
+
+    assert response.status_code == 422

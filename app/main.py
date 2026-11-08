@@ -123,7 +123,51 @@ class IssueCreate(BaseModel):
     def strip_text(cls, value: str) -> str:
         return value.strip()
 
-    
+class IssueUpdate(BaseModel):
+    title: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200
+    )
+
+    description: str | None = Field(
+        default=None,
+        max_length=2000
+    )
+
+    category: str | None = Field(
+        default=None,
+        max_length=100
+    )
+
+    priority: Literal["Low", "Medium", "High"] | None = None
+
+    status: Literal[
+        "Open",
+        "Investigating",
+        "Action Required",
+        "Resolved"
+    ] | None = None
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value):
+        if value is None:
+            return value
+
+        if not value.strip():
+            raise ValueError("Issue title cannot be blank")
+
+        return value.strip()
+
+    @field_validator("description", "category")
+    @classmethod
+    def strip_text(cls, value):
+        if value is None:
+            return value
+
+        return value.strip()
+
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     priority: Literal["Low", "Medium", "High"] = "Medium"
@@ -180,7 +224,7 @@ def create_workspace(workspace: WorkspaceCreate):
         ).fetchone()
 
         return dict(row)
-    
+
 @app.post("/issues")
 def create_issue(issue: IssueCreate):
 
@@ -258,6 +302,65 @@ def get_workspace_issues(workspace_id: int):
         ).fetchall()
 
         return [dict(row) for row in rows]
+
+@app.get("/issues/{issue_id}")
+def get_issue(issue_id: int):
+
+    with sqlite3.connect(DATABASE) as connection:
+        connection.row_factory = sqlite3.Row
+
+        row = connection.execute(
+            "SELECT * FROM issues WHERE id = ?",
+            (issue_id,)
+        ).fetchone()
+
+        if row is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Issue not found"
+            )
+
+        return dict(row)
+
+@app.put("/issues/{issue_id}")
+
+def update_issue(issue_id: int, update: IssueUpdate):
+
+    changes = update.model_dump(exclude_unset=True)
+
+    if not changes:
+        raise HTTPException(
+            status_code=422,
+            detail="Provide at least one field to update"
+        )
+
+    with sqlite3.connect(DATABASE) as connection:
+        connection.row_factory = sqlite3.Row
+
+        existing_issue = connection.execute(
+            "SELECT * FROM issues WHERE id = ?",
+            (issue_id,)
+        ).fetchone()
+
+        if existing_issue is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Issue not found"
+            )
+
+        for field, value in changes.items():
+            connection.execute(
+                f"UPDATE issues SET {field} = ?, "
+                "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (value, issue_id)
+            )
+
+        row = connection.execute(
+            "SELECT * FROM issues WHERE id = ?",
+            (issue_id,)
+        ).fetchone()
+
+        return dict(row)
 
 @app.get("/")
 def home():

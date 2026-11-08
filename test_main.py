@@ -14,6 +14,24 @@ def client(tmp_path, monkeypatch):
 
     with TestClient(main.app) as test_client:
         yield test_client
+def create_test_issue(client):
+    workspace = client.post(
+        "/workspaces",
+        json={"name": "Test Organisation"}
+    )
+
+    issue = client.post(
+        "/issues",
+        json={
+            "workspace_id": workspace.json()["id"],
+            "title": "Projector failure",
+            "description": "The projector keeps shutting down.",
+            "category": "Equipment",
+            "priority": "Medium"
+        }
+    )
+
+    return issue.json()["id"]
 
 
 def test_home(client):
@@ -313,6 +331,140 @@ def test_create_issue_rejects_invalid_priority(client):
             "title": "Test issue",
             "priority": "Urgent"
         }
+    )
+
+    assert response.status_code == 422
+
+def test_get_workspace_issues(client):
+    workspace = client.post(
+        "/workspaces",
+        json={"name": "Test Organisation"}
+    )
+
+    workspace_id = workspace.json()["id"]
+
+    client.post(
+        "/issues",
+        json={
+            "workspace_id": workspace_id,
+            "title": "Projector failure"
+        }
+    )
+
+    response = client.get(
+        f"/workspaces/{workspace_id}/issues"
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["title"] == "Projector failure"
+
+
+def test_get_workspace_issues_not_found(client):
+    response = client.get("/workspaces/999/issues")
+
+    assert response.status_code == 404
+
+
+def test_get_individual_issue(client):
+    workspace = client.post(
+        "/workspaces",
+        json={"name": "Test Organisation"}
+    )
+
+    issue = client.post(
+        "/issues",
+        json={
+            "workspace_id": workspace.json()["id"],
+            "title": "Internet failure"
+        }
+    )
+
+    issue_id = issue.json()["id"]
+
+    response = client.get(f"/issues/{issue_id}")
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "Internet failure"
+    assert response.json()["id"] == issue_id
+
+
+def test_get_individual_issue_not_found(client):
+    response = client.get("/issues/999")
+
+    assert response.status_code == 404
+
+def test_update_issue_fields(client):
+    issue_id = create_test_issue(client)
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={
+            "status": "Investigating",
+            "priority": "High"
+        }
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "Investigating"
+    assert response.json()["priority"] == "High"
+    assert response.json()["title"] == "Projector failure"
+
+
+def test_update_issue_title(client):
+    issue_id = create_test_issue(client)
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={"title": "Projector requires replacement"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "Projector requires replacement"
+
+
+def test_update_missing_issue(client):
+    response = client.put(
+        "/issues/999",
+        json={"status": "Investigating"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_empty_issue_update_rejected(client):
+    issue_id = create_test_issue(client)
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={}
+    )
+
+    assert response.status_code == 422
+
+
+def test_blank_issue_title_rejected(client):
+    issue_id = create_test_issue(client)
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={"title": "   "}
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("field,value", [
+    ("priority", "Urgent"),
+    ("status", "Banana"),
+    ("status", "Verified")
+])
+def test_invalid_issue_update_rejected(client, field, value):
+    issue_id = create_test_issue(client)
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={field: value}
     )
 
     assert response.status_code == 422

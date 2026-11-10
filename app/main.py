@@ -348,6 +348,27 @@ def update_issue(issue_id: int, update: IssueUpdate):
                 detail="Issue not found"
             )
 
+        # Check whether the requested status transition is allowed.
+        if "status" in changes:
+            current_status = existing_issue["status"]
+            new_status = changes["status"]
+
+            if new_status is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Status cannot be empty"
+                )
+
+            if (
+                new_status != current_status
+                and new_status not in ISSUE_STATUS_TRANSITIONS[current_status]
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot change status from "
+                           f"'{current_status}' to '{new_status}'"
+                )
+
         for field, value in changes.items():
             connection.execute(
                 f"UPDATE issues SET {field} = ?, "
@@ -361,7 +382,13 @@ def update_issue(issue_id: int, update: IssueUpdate):
         ).fetchone()
 
         return dict(row)
-
+ISSUE_STATUS_TRANSITIONS = {
+    "Open": {"Investigating"},
+    "Investigating": {"Action Required", "Resolved"},
+    "Action Required": {"Investigating", "Resolved"},
+    "Resolved": {"Investigating"},
+    "Verified": set()
+}
 @app.get("/")
 def home():
     return {"message": "Welcome to IssueFlow!"}

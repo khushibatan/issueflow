@@ -468,3 +468,88 @@ def test_invalid_issue_update_rejected(client, field, value):
     )
 
     assert response.status_code == 422
+
+def test_open_issue_can_move_to_investigating(client):
+    issue_id = create_test_issue(client)
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Investigating"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "Investigating"
+
+
+def test_open_issue_cannot_move_directly_to_resolved(client):
+    issue_id = create_test_issue(client)
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Resolved"}
+    )
+
+    assert response.status_code == 400
+    assert "Cannot change status" in response.json()["detail"]
+
+
+def test_investigating_issue_can_move_to_resolved(client):
+    issue_id = create_test_issue(client)
+
+    client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Investigating"}
+    )
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Resolved"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "Resolved"
+
+
+def test_resolved_issue_can_return_to_investigating(client):
+    issue_id = create_test_issue(client)
+
+    client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Investigating"}
+    )
+
+    client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Resolved"}
+    )
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Investigating"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "Investigating"
+
+
+def test_issue_cannot_skip_investigation(client):
+    issue_id = create_test_issue(client)
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Action Required"}
+    )
+
+    assert response.status_code == 400
+
+
+def test_same_status_update_is_allowed(client):
+    issue_id = create_test_issue(client)
+
+    response = client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Open"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "Open"

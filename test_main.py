@@ -553,3 +553,51 @@ def test_same_status_update_is_allowed(client):
 
     assert response.status_code == 200
     assert response.json()["status"] == "Open"
+
+
+def test_filter_issues_by_status(client):
+    issue_id = create_test_issue(client)
+
+    client.put(
+        f"/issues/{issue_id}",
+        json={"status": "Investigating"}
+    )
+
+    workspace_id = 1
+
+    response = client.get(
+        f"/workspaces/{workspace_id}/issues?status=Investigating"
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["status"] == "Investigating"
+
+
+def test_status_filter_returns_empty_list_when_no_matches(client):
+    create_test_issue(client)
+
+    response = client.get(
+        "/workspaces/1/issues?status=Resolved"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_invalid_status_filter_is_rejected(client):
+    response = client.get(
+        "/workspaces/1/issues?status=SomethingInvalid"
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Invalid status"
+
+
+def test_workspace_issues_without_filter_still_works(client):
+    create_test_issue(client)
+
+    response = client.get("/workspaces/1/issues")
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1

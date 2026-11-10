@@ -276,7 +276,21 @@ def create_issue(issue: IssueCreate):
         return dict(row)
 
 @app.get("/workspaces/{workspace_id}/issues")
-def get_workspace_issues(workspace_id: int):
+def get_workspace_issues(workspace_id: int, status: str | None = None):
+
+    allowed_statuses = {
+        "Open",
+        "Investigating",
+        "Action Required",
+        "Resolved",
+        "Verified"
+    }
+
+    if status is not None and status not in allowed_statuses:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid status"
+        )
 
     with sqlite3.connect(DATABASE) as connection:
         connection.row_factory = sqlite3.Row
@@ -292,13 +306,21 @@ def get_workspace_issues(workspace_id: int):
                 detail="Workspace not found"
             )
 
-        rows = connection.execute(
-            """
+        query = """
             SELECT * FROM issues
             WHERE workspace_id = ?
-            ORDER BY created_at DESC, id DESC
-            """,
-            (workspace_id,)
+        """
+        parameters = [workspace_id]
+
+        if status is not None:
+            query += " AND status = ?"
+            parameters.append(status)
+
+        query += " ORDER BY created_at DESC, id DESC"
+
+        rows = connection.execute(
+            query,
+            parameters
         ).fetchall()
 
         return [dict(row) for row in rows]

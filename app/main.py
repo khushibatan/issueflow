@@ -91,6 +91,23 @@ def init_db():
             )
         """)
 
+        # Investigation records associated with an issue.
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS investigation_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                issue_id INTEGER NOT NULL,
+                notes TEXT NOT NULL,
+                finding TEXT NOT NULL DEFAULT '',
+                possible_cause TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (issue_id)
+                    REFERENCES issues(id)
+                    ON DELETE CASCADE
+            )
+        """)
+
+
 
 init_db()
 
@@ -167,6 +184,25 @@ class IssueUpdate(BaseModel):
             return value
 
         return value.strip()
+
+
+class InvestigationCreate(BaseModel):
+    notes: str
+    finding: str = ""
+    possible_cause: str = ""
+
+    @field_validator("notes", "finding", "possible_cause")
+    @classmethod
+    def validate_text(cls, value):
+        return value.strip()
+
+    @field_validator("notes")
+    @classmethod
+    def validate_notes(cls, value):
+        if not value:
+            raise ValueError("Investigation notes cannot be empty")
+        return value
+
 
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -324,6 +360,55 @@ def get_workspace_issues(workspace_id: int, status: str | None = None):
         ).fetchall()
 
         return [dict(row) for row in rows]
+
+
+@app.post("/issues/{issue_id}/investigations")
+def create_investigation(issue_id: int, investigation: InvestigationCreate):
+
+    with sqlite3.connect(DATABASE) as connection:
+        connection.row_factory = sqlite3.Row
+
+        issue = connection.execute(
+            "SELECT id FROM issues WHERE id = ?",
+            (issue_id,)
+        ).fetchone()
+
+        if issue is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Issue not found"
+            )
+
+        cursor = connection.execute(
+            """
+            INSERT INTO investigation_records (
+                issue_id,
+                notes,
+                finding,
+                possible_cause
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                issue_id,
+                investigation.notes,
+                investigation.finding,
+                investigation.possible_cause
+            )
+        )
+
+        connection.commit()
+
+        row = connection.execute(
+            """
+            SELECT * FROM investigation_records
+            WHERE id = ?
+            """,
+            (cursor.lastrowid,)
+        ).fetchone()
+
+        return dict(row)
+
 
 @app.get("/issues/{issue_id}")
 def get_issue(issue_id: int):

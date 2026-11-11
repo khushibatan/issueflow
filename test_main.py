@@ -601,3 +601,61 @@ def test_workspace_issues_without_filter_still_works(client):
 
     assert response.status_code == 200
     assert len(response.json()) == 1
+
+
+def test_create_investigation(client):
+    issue_id = create_test_issue(client)
+
+    response = client.post(
+        f"/issues/{issue_id}/investigations",
+        json={
+            "notes": "Checked the projector power supply.",
+            "finding": "Power cable is damaged.",
+            "possible_cause": "Wear and tear."
+        }
+    )
+
+    assert response.status_code == 200
+    assert response.json()["issue_id"] == issue_id
+    assert response.json()["notes"] == "Checked the projector power supply."
+    assert response.json()["finding"] == "Power cable is damaged."
+
+
+def test_create_investigation_for_missing_issue(client):
+    response = client.post(
+        "/issues/9999/investigations",
+        json={"notes": "Checked the equipment."}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Issue not found"
+
+
+def test_investigation_requires_notes(client):
+    issue_id = create_test_issue(client)
+
+    response = client.post(
+        f"/issues/{issue_id}/investigations",
+        json={"notes": "   "}
+    )
+
+    assert response.status_code == 422
+
+
+def test_issue_can_have_multiple_investigations(client):
+    issue_id = create_test_issue(client)
+
+    first = client.post(
+        f"/issues/{issue_id}/investigations",
+        json={"notes": "Checked the power supply."}
+    )
+
+    second = client.post(
+        f"/issues/{issue_id}/investigations",
+        json={"notes": "Inspected the cooling fan."}
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["id"] != second.json()["id"]
+    assert first.json()["issue_id"] == second.json()["issue_id"]

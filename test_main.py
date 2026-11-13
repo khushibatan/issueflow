@@ -659,3 +659,70 @@ def test_issue_can_have_multiple_investigations(client):
     assert second.status_code == 200
     assert first.json()["id"] != second.json()["id"]
     assert first.json()["issue_id"] == second.json()["issue_id"]
+
+
+def test_get_issue_investigations(client):
+    issue_id = create_test_issue(client)
+
+    client.post(
+        f"/issues/{issue_id}/investigations",
+        json={
+            "notes": "Checked the power supply.",
+            "finding": "Power cable is damaged.",
+            "possible_cause": "Wear and tear."
+        }
+    )
+
+    response = client.get(
+        f"/issues/{issue_id}/investigations"
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["issue_id"] == issue_id
+    assert response.json()[0]["notes"] == "Checked the power supply."
+
+
+def test_get_issue_investigations_returns_empty_list(client):
+    issue_id = create_test_issue(client)
+
+    response = client.get(
+        f"/issues/{issue_id}/investigations"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_investigations_for_missing_issue(client):
+    response = client.get(
+        "/issues/9999/investigations"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Issue not found"
+
+
+def test_get_multiple_investigations_in_order(client):
+    issue_id = create_test_issue(client)
+
+    client.post(
+        f"/issues/{issue_id}/investigations",
+        json={"notes": "First investigation."}
+    )
+
+    client.post(
+        f"/issues/{issue_id}/investigations",
+        json={"notes": "Second investigation."}
+    )
+
+    response = client.get(
+        f"/issues/{issue_id}/investigations"
+    )
+
+    records = response.json()
+
+    assert response.status_code == 200
+    assert len(records) == 2
+    assert records[0]["notes"] == "First investigation."
+    assert records[1]["notes"] == "Second investigation."

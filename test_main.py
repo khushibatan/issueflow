@@ -726,3 +726,58 @@ def test_get_multiple_investigations_in_order(client):
     assert len(records) == 2
     assert records[0]["notes"] == "First investigation."
     assert records[1]["notes"] == "Second investigation."
+
+
+def test_get_individual_investigation(client):
+    issue_id = create_test_issue(client)
+
+    created = client.post(
+        f"/issues/{issue_id}/investigations",
+        json={
+            "notes": "Inspected the projector.",
+            "finding": "The cooling fan is blocked.",
+            "possible_cause": "Dust accumulation."
+        }
+    )
+
+    investigation_id = created.json()["id"]
+
+    response = client.get(
+        f"/investigations/{investigation_id}"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == investigation_id
+    assert response.json()["issue_id"] == issue_id
+    assert response.json()["finding"] == "The cooling fan is blocked."
+
+
+def test_get_missing_investigation(client):
+    response = client.get("/investigations/9999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Investigation record not found"
+
+
+def test_individual_investigation_returns_correct_record(client):
+    issue_id = create_test_issue(client)
+
+    first = client.post(
+        f"/issues/{issue_id}/investigations",
+        json={"notes": "First inspection."}
+    )
+
+    second = client.post(
+        f"/issues/{issue_id}/investigations",
+        json={"notes": "Second inspection."}
+    )
+
+    first_id = first.json()["id"]
+
+    response = client.get(
+        f"/investigations/{first_id}"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["notes"] == "First inspection."
+    assert response.json()["id"] != second.json()["id"]

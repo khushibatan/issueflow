@@ -439,6 +439,29 @@ def get_issue_investigations(issue_id: int):
         return [dict(row) for row in rows]
 
 
+@app.get("/investigations/{investigation_id}")
+def get_investigation(investigation_id: int):
+
+    with sqlite3.connect(DATABASE) as connection:
+        connection.row_factory = sqlite3.Row
+
+        investigation = connection.execute(
+            """
+            SELECT * FROM investigation_records
+            WHERE id = ?
+            """,
+            (investigation_id,)
+        ).fetchone()
+
+        if investigation is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Investigation record not found"
+            )
+
+        return dict(investigation)
+
+
 @app.get("/issues/{issue_id}")
 def get_issue(issue_id: int):
 

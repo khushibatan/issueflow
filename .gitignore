@@ -5,3 +5,4 @@ __pycache__/
 .env
 issueflow.db
 issueflow-backup-*.db
+/data/evidence/

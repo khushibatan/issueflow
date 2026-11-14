@@ -1,8 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field, field_validator
 import sqlite3
 from typing import Literal
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
+from uuid import uuid4
 
 app = FastAPI(title="IssueFlow")
 app.add_middleware(
@@ -17,6 +19,8 @@ app.add_middleware(
 )
 
 DATABASE = "issueflow.db"
+EVIDENCE_STORAGE_DIR = Path(__file__).resolve().parent.parent / "data" / "evidence"
+MAX_EVIDENCE_SIZE = 5 * 1024 * 1024
 
 
 # Connect to the database and create the tasks table
@@ -103,6 +107,22 @@ def init_db():
 
                 FOREIGN KEY (issue_id)
                     REFERENCES issues(id)
+                    ON DELETE CASCADE
+            )
+        """)
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS evidence (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                investigation_id INTEGER NOT NULL,
+                original_filename TEXT NOT NULL,
+                stored_filename TEXT NOT NULL UNIQUE,
+                file_type TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                uploaded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (investigation_id)
+                    REFERENCES investigation_records(id)
                     ON DELETE CASCADE
             )
         """)
@@ -460,6 +480,179 @@ def get_investigation(investigation_id: int):
             )
 
         return dict(investigation)
+
+
+def _detect_evidence_type(content: bytes) -> tuple[str, str] | None:
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg", ".jpg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png", ".png"
+    if content.startswith(b"%PDF-"):
+        return "application/pdf", ".pdf"
+    return None
+
+
+def _remove_evidence_file(path: Path | None) -> None:
+    if path is not None:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+@app.post("/investigations/{investigation_id}/evidence")
+async def upload_investigation_evidence(
+    investigation_id: int,
+    file: UploadFile = File(...)
+):
+    with sqlite3.connect(DATABASE) as connection:
+        investigation = connection.execute(
+            "SELECT id FROM investigation_records WHERE id = ?",
+            (investigation_id,)
+        ).fetchone()
+
+    if investigation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Investigation record not found"
+        )
+
+    original_filename = file.filename or ""
+    extension = original_filename.rsplit(".", 1)[-1].lower()
+    if "." not in original_filename or extension not in {
+        "jpg", "jpeg", "png", "pdf"
+    }:
+        raise HTTPException(
+            status_code=415,
+            detail="Unsupported evidence file type"
+        )
+
+    content = bytearray()
+    try:
+        while True:
+            chunk = await file.read(64 * 1024)
+            if not chunk:
+                break
+            content.extend(chunk)
+            if len(content) > MAX_EVIDENCE_SIZE:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Evidence file exceeds the 5 MB limit"
+                )
+    finally:
+        await file.close()
+
+    if not content:
+        raise HTTPException(status_code=400, detail="Evidence file is empty")
+
+    detected_type = _detect_evidence_type(content)
+    if detected_type is None:
+        raise HTTPException(
+            status_code=415,
+            detail="Unsupported evidence file content"
+        )
+
+    file_type, stored_extension = detected_type
+    expected_extensions = {
+        "image/jpeg": {"jpg", "jpeg"},
+        "image/png": {"png"},
+        "application/pdf": {"pdf"}
+    }
+    if extension not in expected_extensions[file_type]:
+        raise HTTPException(
+            status_code=415,
+            detail="File extension does not match its content"
+        )
+
+    stored_filename = f"{uuid4().hex}{stored_extension}"
+    stored_path = EVIDENCE_STORAGE_DIR / stored_filename
+
+    try:
+        EVIDENCE_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+        with stored_path.open("xb") as evidence_file:
+            evidence_file.write(content)
+
+        with sqlite3.connect(DATABASE) as connection:
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            investigation = connection.execute(
+                "SELECT id FROM investigation_records WHERE id = ?",
+                (investigation_id,)
+            ).fetchone()
+            if investigation is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Investigation record not found"
+                )
+
+            cursor = connection.execute(
+                """
+                INSERT INTO evidence (
+                    investigation_id,
+                    original_filename,
+                    stored_filename,
+                    file_type,
+                    file_size
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    investigation_id,
+                    original_filename,
+                    stored_filename,
+                    file_type,
+                    len(content)
+                )
+            )
+            connection.commit()
+
+            row = connection.execute(
+                "SELECT * FROM evidence WHERE id = ?",
+                (cursor.lastrowid,)
+            ).fetchone()
+
+        return dict(row)
+    except HTTPException:
+        _remove_evidence_file(stored_path)
+        raise
+    except OSError:
+        _remove_evidence_file(stored_path)
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to store evidence file"
+        ) from None
+    except sqlite3.Error:
+        _remove_evidence_file(stored_path)
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to save evidence metadata"
+        ) from None
+
+
+@app.get("/investigations/{investigation_id}/evidence")
+def get_investigation_evidence(investigation_id: int):
+    with sqlite3.connect(DATABASE) as connection:
+        connection.row_factory = sqlite3.Row
+        investigation = connection.execute(
+            "SELECT id FROM investigation_records WHERE id = ?",
+            (investigation_id,)
+        ).fetchone()
+
+        if investigation is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Investigation record not found"
+            )
+
+        rows = connection.execute(
+            """
+            SELECT * FROM evidence
+            WHERE investigation_id = ?
+            ORDER BY uploaded_at ASC, id ASC
+            """,
+            (investigation_id,)
+        ).fetchall()
+        return [dict(row) for row in rows]
 
 
 @app.get("/issues/{issue_id}")

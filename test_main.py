@@ -8,6 +8,7 @@ def client(tmp_path, monkeypatch):
     # Give each test a separate, temporary database.
     test_database = tmp_path / "test_issueflow.db"
     monkeypatch.setattr(main, "DATABASE", str(test_database))
+    monkeypatch.setattr(main, "EVIDENCE_STORAGE_DIR", tmp_path / "evidence")
 
     # Create the tasks table in the temporary database.
     main.init_db()
@@ -781,3 +782,110 @@ def test_individual_investigation_returns_correct_record(client):
     assert response.status_code == 200
     assert response.json()["notes"] == "First inspection."
     assert response.json()["id"] != second.json()["id"]
+
+
+def create_test_investigation(client):
+    issue_id = create_test_issue(client)
+    response = client.post(
+        f"/issues/{issue_id}/investigations",
+        json={"notes": "Inspecting evidence."}
+    )
+    return response.json()["id"]
+
+
+@pytest.mark.parametrize(
+    "filename,content,file_type",
+    [
+        ("inspection.png", b"\x89PNG\r\n\x1a\n" + b"test image data", "image/png"),
+        ("inspection.jpg", b"\xff\xd8\xff" + b"test image data", "image/jpeg"),
+        ("inspection.jpeg", b"\xff\xd8\xff" + b"test image data", "image/jpeg"),
+        ("report.pdf", b"%PDF-1.7 test document", "application/pdf"),
+    ]
+)
+def test_upload_investigation_evidence(client, filename, content, file_type):
+    investigation_id = create_test_investigation(client)
+
+    response = client.post(
+        f"/investigations/{investigation_id}/evidence",
+        files={"file": (filename, content, "application/octet-stream")}
+    )
+
+    assert response.status_code == 200
+    metadata = response.json()
+    assert metadata["investigation_id"] == investigation_id
+    assert metadata["original_filename"] == filename
+    assert metadata["file_type"] == file_type
+    assert metadata["file_size"] == len(content)
+    assert metadata["stored_filename"] != "inspection.png"
+    assert (main.EVIDENCE_STORAGE_DIR / metadata["stored_filename"]).read_bytes() == content
+
+    listing = client.get(
+        f"/investigations/{investigation_id}/evidence"
+    )
+    assert listing.status_code == 200
+    assert listing.json() == [metadata]
+
+
+def test_upload_investigation_evidence_rejects_empty_file(client):
+    investigation_id = create_test_investigation(client)
+
+    response = client.post(
+        f"/investigations/{investigation_id}/evidence",
+        files={"file": ("empty.png", b"", "image/png")}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Evidence file is empty"
+
+
+def test_upload_investigation_evidence_rejects_unsupported_content(client):
+    investigation_id = create_test_investigation(client)
+
+    response = client.post(
+        f"/investigations/{investigation_id}/evidence",
+        files={"file": ("notes.txt", b"not an image", "text/plain")}
+    )
+
+    assert response.status_code == 415
+
+
+def test_upload_investigation_evidence_rejects_extension_content_mismatch(client):
+    investigation_id = create_test_investigation(client)
+
+    response = client.post(
+        f"/investigations/{investigation_id}/evidence",
+        files={"file": ("photo.jpg", b"%PDF-1.7 test", "image/jpeg")}
+    )
+
+    assert response.status_code == 415
+    assert response.json()["detail"] == "File extension does not match its content"
+
+
+def test_upload_investigation_evidence_rejects_oversized_file(client):
+    investigation_id = create_test_investigation(client)
+    content = b"\x89PNG\r\n\x1a\n" + b"x" * (5 * 1024 * 1024)
+
+    response = client.post(
+        f"/investigations/{investigation_id}/evidence",
+        files={"file": ("large.png", content, "image/png")}
+    )
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == "Evidence file exceeds the 5 MB limit"
+
+
+def test_upload_investigation_evidence_rejects_missing_investigation(client):
+    response = client.post(
+        "/investigations/9999/evidence",
+        files={"file": ("inspection.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Investigation record not found"
+
+
+def test_get_evidence_for_missing_investigation(client):
+    response = client.get("/investigations/9999/evidence")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Investigation record not found"

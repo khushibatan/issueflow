@@ -8,23 +8,12 @@ const STATUS_TRANSITIONS = {
     Verified: []
 };
 
-const STATUS_COLORS = {
-    Open: ["#eef1f7", "#526078"],
-    Investigating: ["#eaf3ff", "#326da9"],
-    "Action Required": ["#fff3e5", "#9d5d12"],
-    Resolved: ["#eaf6ef", "#2f7b4e"],
-    Verified: ["#e8f4f1", "#28715f"]
-};
-
-const PRIORITY_COLORS = {
-    Low: ["#eaf6ef", "#2f7b4e"],
-    Medium: ["#fff5df", "#8a650e"],
-    High: ["#fcebea", "#a43b36"]
-};
+const THEME_STORAGE_KEY = "issueflow-theme";
 
 const elements = {
     workspaceSelect: document.getElementById("workspace-select"),
     createWorkspaceButton: document.getElementById("create-workspace-button"),
+    themeToggle: document.getElementById("theme-toggle"),
     openIssueFormButton: document.getElementById("open-issue-form-button"),
     currentDate: document.getElementById("current-date"),
     totalIssues: document.getElementById("total-issues"),
@@ -99,6 +88,60 @@ function setMessage(element, message) {
     }
 }
 
+function applyTheme(theme, savePreference = true) {
+    const selectedTheme = theme === "dark" ? "dark" : "light";
+    const isDark = selectedTheme === "dark";
+    document.documentElement.dataset.theme = selectedTheme;
+
+    if (elements.themeToggle) {
+        const icon = elements.themeToggle.querySelector(".theme-toggle-icon");
+        const label = elements.themeToggle.querySelector(".theme-toggle-label");
+        const nextTheme = isDark ? "light" : "dark";
+        const toggleLabel = `Switch to ${nextTheme} theme`;
+
+        elements.themeToggle.setAttribute("aria-label", toggleLabel);
+        elements.themeToggle.setAttribute("aria-pressed", String(isDark));
+        elements.themeToggle.title = toggleLabel;
+        if (icon) icon.textContent = isDark ? "☀" : "☾";
+        if (label) label.textContent = toggleLabel;
+    }
+
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    if (themeColor) {
+        themeColor.content = getComputedStyle(document.documentElement)
+            .getPropertyValue("--background")
+            .trim();
+    }
+
+    if (savePreference) {
+        try {
+            window.localStorage.setItem(THEME_STORAGE_KEY, selectedTheme);
+        } catch (error) {
+            console.warn("Could not save the IssueFlow theme preference.", error);
+        }
+    }
+}
+
+function initializeTheme() {
+    let savedTheme = "light";
+    try {
+        savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) === "dark"
+            ? "dark"
+            : "light";
+    } catch (error) {
+        console.warn("Could not read the saved IssueFlow theme preference.", error);
+    }
+
+    applyTheme(savedTheme, false);
+
+    if (elements.themeToggle) {
+        elements.themeToggle.addEventListener("click", () => {
+            const currentTheme = document.documentElement.dataset.theme;
+            applyTheme(currentTheme === "dark" ? "light" : "dark");
+        });
+    }
+}
+
 function setSummaryCounts(issueItems) {
     const counts = {
         total: issueItems.length,
@@ -130,16 +173,11 @@ function showEmptyMessage(container, heading, description) {
     container.replaceChildren(emptyState);
 }
 
-function createBadge(label, colors) {
+function createBadge(label, type, variant) {
     const badge = document.createElement("span");
     badge.textContent = label;
-    badge.style.display = "inline-block";
-    badge.style.padding = "3px 8px";
-    badge.style.borderRadius = "999px";
-    badge.style.backgroundColor = colors[0];
-    badge.style.color = colors[1];
-    badge.style.fontSize = "11px";
-    badge.style.fontWeight = "650";
+    badge.className = `issue-badge issue-badge-${type}`;
+    if (variant) badge.classList.add(`is-${variant}`);
     return badge;
 }
 
@@ -231,16 +269,12 @@ function renderIssues() {
         metadata.style.alignItems = "center";
         metadata.style.gap = "8px";
         metadata.style.marginTop = "12px";
+        const priority = issue.priority || "Medium";
+        const status = issue.status || "Open";
         metadata.append(
-            createBadge(issue.category || "General", ["#f0effb", "#5147b3"]),
-            createBadge(
-                issue.priority || "Medium",
-                PRIORITY_COLORS[issue.priority] || PRIORITY_COLORS.Medium
-            ),
-            createBadge(
-                issue.status || "Open",
-                STATUS_COLORS[issue.status] || STATUS_COLORS.Open
-            )
+            createBadge(issue.category || "General", "category"),
+            createBadge(priority, "priority", priority.toLowerCase()),
+            createBadge(status, "status", status.toLowerCase().replace(/\s+/g, "-"))
         );
 
         const created = document.createElement("p");
@@ -644,6 +678,8 @@ async function createInvestigation(event) {
 }
 
 function initializeDashboard() {
+    initializeTheme();
+
     if (elements.currentDate) {
         const now = new Date();
         elements.currentDate.textContent = new Intl.DateTimeFormat(undefined, {

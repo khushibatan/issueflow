@@ -1,124 +1,234 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IssueFlow | Task Dashboard</title>
+    <meta name="theme-color" content="#f5f6f8">
+    <title>IssueFlow | Issue Overview</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header class="header">
-        <div class="brand">
-            <span class="brand-icon">IF</span>
-            <h1>IssueFlow</h1>
-        </div>
-        <p>Plan your work. Track your progress.</p>
-    </header>
+    <div class="app-shell">
+        <aside class="sidebar" aria-label="Workspace navigation">
+            <a class="brand" href="#overview" aria-label="IssueFlow overview">
+                <span class="brand-mark" aria-hidden="true">IF</span>
+                <span class="brand-name">IssueFlow</span>
+            </a>
 
-    <main class="container">
-        <section class="welcome">
-            <div>
-                <p class="eyebrow">YOUR WORKSPACE</p>
-                <h2>My Tasks</h2>
-                <p class="subtitle">A little progress every day adds up.</p>
-            </div>
-            <span class="date-label" id="today-date"></span>
-        </section>
-
-        <section class="stats">
-            <article class="stat-card">
-                <p>Total Tasks</p>
-                <h3 id="total-count">0</h3>
-            </article>
-
-            <article class="stat-card">
-                <p>To Do</p>
-                <h3 id="todo-count">0</h3>
-            </article>
-
-            <article class="stat-card">
-                <p>In Progress</p>
-                <h3 id="progress-count">0</h3>
-            </article>
-
-            <article class="stat-card">
-                <p>Completed</p>
-                <h3 id="done-count">0</h3>
-            </article>
-        </section>
-
-        <section class="task-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Add a task</h2>
-                    <p class="subtitle">Keep your next step clear and manageable.</p>
-                </div>
-            </div>
-
-            <form id="task-form">
-                <div class="form-group">
-                    <label for="task-title">Task title</label>
-                    <input
-                        type="text"
-                        id="task-title"
-                        placeholder="e.g. Finish Java assignment"
-                        maxlength="200"
-                        required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="task-priority">Priority</label>
-                    <select id="task-priority">
-                        <option value="Low">Low</option>
-                        <option value="Medium" selected>Medium</option>
-                        <option value="High">High</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="task-due-date">Due Date</label>
-                    <input
-                        type="date"
-                        id="task-due-date"
-                    >
-
-                <button type="submit" id="add-task-button">+ Add Task</button>
-            </form>
-
-            <p id="form-message" role="status"></p>
-        </section>
-
-        <section class="task-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Your task list</h2>
-                    <p class="subtitle">Update a task as you make progress.</p>
-                </div>
-                <input
-    type="search"
-    id="search-input"
-    placeholder="Search tasks by title..."
-    aria-label="Search tasks by title"
-/>
-                <select id="status-filter" aria-label="Filter tasks by status">
-                    <option value="All">All tasks</option>
-                    <option value="To Do">To Do</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Done">Done</option>
+            <div class="workspace-section">
+                <h2 class="section-label">Workspace</h2>
+                <label class="sr-only" for="workspace-select">Select workspace</label>
+                <select id="workspace-select" class="workspace-select">
+                    <option value="">Select a workspace</option>
                 </select>
+                <button type="button" class="button button-secondary workspace-create" id="create-workspace-button">
+                    <span aria-hidden="true">+</span>
+                    Create workspace
+                </button>
             </div>
 
-            <div id="task-list" class="task-list">
-                <p class="empty-state">Your tasks will appear here.</p>
-            </div>
-        </section>
-    </main>
+            <nav class="primary-nav" aria-label="Main navigation">
+                <a class="nav-link active" href="#overview" aria-current="page">
+                    <span class="nav-icon" aria-hidden="true">◫</span>
+                    Overview
+                </a>
+                <a class="nav-link" href="#issue-list">
+                    <span class="nav-icon" aria-hidden="true">▤</span>
+                    All Issues
+                </a>
+            </nav>
 
-    <footer>
-        <p>IssueFlow · Small steps, steady progress.</p>
-    </footer>
+            <p class="sidebar-footer">A focused workspace for issue management and investigation.</p>
+        </aside>
 
+        <main class="main-content" id="overview">
+            <header class="main-header">
+                <div class="heading-copy">
+                    <p class="eyebrow">ISSUE MANAGEMENT</p>
+                    <h1>Overview</h1>
+                    <p class="page-subtitle">Monitor issues, coordinate investigations, and keep your team moving.</p>
+                </div>
+                <div class="header-actions">
+                    <time class="current-date" id="current-date"></time>
+                    <button type="button" class="button button-primary" id="open-issue-form-button">
+                        <span aria-hidden="true">+</span>
+                        New Issue
+                    </button>
+                </div>
+            </header>
+
+            <section class="summary-grid" aria-label="Issue summary">
+                <article class="summary-card summary-total">
+                    <div class="summary-icon" aria-hidden="true">▤</div>
+                    <p>Total issues</p>
+                    <h2 id="total-issues">0</h2>
+                    <span class="summary-hint">Across this workspace</span>
+                </article>
+                <article class="summary-card">
+                    <div class="summary-icon icon-open" aria-hidden="true">○</div>
+                    <p>Open</p>
+                    <h2 id="open-issues">0</h2>
+                    <span class="summary-hint">Awaiting investigation</span>
+                </article>
+                <article class="summary-card">
+                    <div class="summary-icon icon-investigating" aria-hidden="true">⌕</div>
+                    <p>Investigating</p>
+                    <h2 id="investigating-issues">0</h2>
+                    <span class="summary-hint">Being looked into</span>
+                </article>
+                <article class="summary-card">
+                    <div class="summary-icon icon-action" aria-hidden="true">!</div>
+                    <p>Action required</p>
+                    <h2 id="action-required-issues">0</h2>
+                    <span class="summary-hint">Needs a next step</span>
+                </article>
+                <article class="summary-card">
+                    <div class="summary-icon icon-resolved" aria-hidden="true">✓</div>
+                    <p>Resolved</p>
+                    <h2 id="resolved-issues">0</h2>
+                    <span class="summary-hint">Ready for verification</span>
+                </article>
+            </section>
+
+            <section class="panel issue-create-panel" aria-labelledby="create-issue-heading">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">REPORT A PROBLEM</p>
+                        <h2 id="create-issue-heading">Create an issue</h2>
+                        <p class="panel-description">Capture the details your team needs to investigate.</p>
+                    </div>
+                </div>
+
+                <form id="issue-form">
+                    <div class="form-grid">
+                        <div class="form-field field-title">
+                            <label for="issue-title">Issue title</label>
+                            <input type="text" id="issue-title" name="title" maxlength="200" placeholder="Briefly describe the issue" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="issue-category">Category</label>
+                            <input type="text" id="issue-category" name="category" maxlength="100" placeholder="e.g. Equipment">
+                        </div>
+                        <div class="form-field">
+                            <label for="issue-priority">Priority</label>
+                            <select id="issue-priority" name="priority">
+                                <option value="Low">Low</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="High">High</option>
+                            </select>
+                        </div>
+                        <div class="form-field field-description">
+                            <label for="issue-description">Description</label>
+                            <textarea id="issue-description" name="description" rows="3" maxlength="2000" placeholder="Add context, impact, and any useful details"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-footer">
+                        <p id="issue-form-message" class="form-message" role="status" aria-live="polite"></p>
+                        <button type="submit" class="button button-primary">Create issue</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel issues-panel" aria-labelledby="issues-heading">
+                <div class="panel-heading issues-heading">
+                    <div>
+                        <p class="eyebrow">WORKSPACE ACTIVITY</p>
+                        <h2 id="issues-heading">All Issues</h2>
+                        <p class="panel-description">Review and prioritize reported issues.</p>
+                    </div>
+                    <div class="issue-filters">
+                        <label class="sr-only" for="issue-search">Search issues</label>
+                        <input type="search" id="issue-search" placeholder="Search issues...">
+                        <label class="sr-only" for="issue-status-filter">Filter by status</label>
+                        <select id="issue-status-filter">
+                            <option value="">All statuses</option>
+                            <option value="Open">Open</option>
+                            <option value="Investigating">Investigating</option>
+                            <option value="Action Required">Action Required</option>
+                            <option value="Resolved">Resolved</option>
+                            <option value="Verified">Verified</option>
+                        </select>
+                        <label class="sr-only" for="issue-priority-filter">Filter by priority</label>
+                        <select id="issue-priority-filter">
+                            <option value="">All priorities</option>
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="issue-list" id="issue-list" aria-live="polite">
+                    <div class="empty-state">
+                        <span class="empty-icon" aria-hidden="true">▤</span>
+                        <h3>No issues to show</h3>
+                        <p>Select a workspace or create an issue to get started.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel detail-panel" id="issue-detail-panel" aria-labelledby="issue-detail-title" hidden>
+                <div class="detail-heading">
+                    <div>
+                        <p class="eyebrow">ISSUE DETAILS</p>
+                        <h2 id="issue-detail-title"></h2>
+                    </div>
+                </div>
+                <div class="detail-summary">
+                    <p id="issue-detail-description"></p>
+                    <dl class="detail-metadata">
+                        <div>
+                            <dt>Category</dt>
+                            <dd id="issue-detail-category"></dd>
+                        </div>
+                        <div>
+                            <dt>Priority</dt>
+                            <dd id="issue-detail-priority"></dd>
+                        </div>
+                        <div>
+                            <dt>Status</dt>
+                            <dd id="issue-detail-status"></dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <section class="investigation-section" aria-labelledby="investigation-heading">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">INVESTIGATION</p>
+                            <h3 id="investigation-heading">Investigation history</h3>
+                        </div>
+                    </div>
+                    <div class="investigation-list" id="investigation-list">
+                        <p class="empty-state">No investigation records yet.</p>
+                    </div>
+                    <form id="investigation-form">
+                        <h3>Add investigation notes</h3>
+                        <div class="form-field">
+                            <label for="investigation-notes">Notes <span class="required-mark" aria-hidden="true">*</span></label>
+                            <textarea id="investigation-notes" name="notes" rows="3" required></textarea>
+                        </div>
+                        <div class="investigation-fields">
+                            <div class="form-field">
+                                <label for="investigation-finding">Finding</label>
+                                <textarea id="investigation-finding" name="finding" rows="2"></textarea>
+                            </div>
+                            <div class="form-field">
+                                <label for="investigation-cause">Possible cause</label>
+                                <textarea id="investigation-cause" name="possible_cause" rows="2"></textarea>
+                            </div>
+                        </div>
+                        <div class="form-footer">
+                            <p id="investigation-message" class="form-message" role="status" aria-live="polite"></p>
+                            <button type="submit" class="button button-primary">Save investigation</button>
+                        </div>
+                    </form>
+                </section>
+            </section>
+
+            <footer class="main-footer">IssueFlow <span aria-hidden="true">·</span> Clear issues. Better investigations.</footer>
+        </main>
+    </div>
     <script src="script.js"></script>
 </body>
 </html>

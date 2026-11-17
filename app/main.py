@@ -281,6 +281,16 @@ def create_workspace(workspace: WorkspaceCreate):
 
         return dict(row)
 
+@app.get("/workspaces")
+def get_workspaces():
+    with sqlite3.connect(DATABASE) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            "SELECT id, name, created_at FROM workspaces ORDER BY id"
+        ).fetchall()
+
+        return [dict(row) for row in rows]
+
 @app.post("/issues")
 def create_issue(issue: IssueCreate):
 

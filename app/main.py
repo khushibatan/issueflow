@@ -1,4 +1,6 @@
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 import sqlite3
 from typing import Literal
@@ -19,6 +21,7 @@ app.add_middleware(
 )
 
 DATABASE = "issueflow.db"
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 EVIDENCE_STORAGE_DIR = Path(__file__).resolve().parent.parent / "data" / "evidence"
 MAX_EVIDENCE_SIZE = 5 * 1024 * 1024
 
@@ -752,7 +755,10 @@ ISSUE_STATUS_TRANSITIONS = {
     "Verified": set()
 }
 @app.get("/")
-def home():
+def home(request: Request):
+    if "text/html" in request.headers.get("accept", "").lower():
+        return FileResponse(FRONTEND_DIR / "index.html")
+
     return {"message": "Welcome to IssueFlow!"}
 
 
@@ -844,3 +850,6 @@ def delete_task(task_id: int):
             )
 
         return {"message": "Task deleted successfully"}
+
+
+app.mount("/", StaticFiles(directory=FRONTEND_DIR), name="frontend")

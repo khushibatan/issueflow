@@ -1,4 +1,6 @@
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = window.location.port === "5500"
+    ? "http://127.0.0.1:8000"
+    : "";
 
 const STATUS_TRANSITIONS = {
     Open: ["Investigating"],

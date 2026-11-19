@@ -10,7 +10,7 @@ const STATUS_TRANSITIONS = {
     Verified: []
 };
 
-const THEME_STORAGE_KEY = "issueflow-theme1";
+const THEME_STORAGE_KEY = "issueflow-theme";
 
 const elements = {
     workspaceSelect: document.getElementById("workspace-select"),
